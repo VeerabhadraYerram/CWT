@@ -77,50 +77,118 @@ class KalshiAgent(BaseAgent):
         self.api = KalshiAPI()
 
     async def fetch_traders(self, limit: int = 10) -> list[TraderProfile]:
-        """Fetch markets from Kalshi and convert to TraderProfiles.
+        """Fetch events from Kalshi and convert to TraderProfiles.
+
+        Uses the events endpoint with nested markets to get real volume data.
 
         Args:
-            limit: Max markets to fetch.
+            limit: Max events to fetch.
 
         Returns:
-            List of TraderProfile objects representing Kalshi markets.
+            List of TraderProfile objects representing Kalshi events.
         """
         self.logger.info("kalshi_fetch_traders", limit=limit)
 
         try:
-            data = await self.api.get_markets(limit=limit, status="open")
-            markets = data.get("markets", [])
+            data = await self.api.get_events(limit=limit, status="open")
+            events = data.get("events", [])
         except Exception as e:
             self.logger.error("kalshi_api_failed", error=str(e))
             return []
 
-        if not markets:
-            self.logger.warning("kalshi_no_markets")
+        if not events:
+            self.logger.warning("kalshi_no_events")
             return []
 
         traders = []
-        for market in markets:
-            trader = self._parse_market(market)
+        for event in events:
+            trader = self._parse_event(event)
             if trader:
                 traders.append(trader)
 
         self.logger.info("kalshi_traders_created", count=len(traders))
         return traders
 
+    def _parse_event(self, event: dict) -> TraderProfile | None:
+        """Convert a Kalshi event (with nested markets) into a TraderProfile.
+
+        Aggregates volume and open_interest across all nested markets.
+        """
+        try:
+            event_ticker = event.get("event_ticker", "")
+            title = event.get("title", "Unknown Event")
+            markets = event.get("markets", [])
+
+            # Aggregate volume and open interest across all nested markets
+            total_volume = sum(
+                self._safe_float(m.get("volume_fp")) for m in markets
+            )
+            total_oi = sum(
+                self._safe_float(m.get("open_interest_fp")) for m in markets
+            )
+
+            # Use the best available activity metric
+            total_activity = max(total_volume, total_oi, 1)
+
+            # Estimate PnL from activity
+            estimated_pnl = total_activity * 0.05
+
+            now = datetime.now(timezone.utc)
+            niche = _infer_niche_from_ticker(event_ticker)
+
+            return TraderProfile(
+                platform="kalshi",
+                wallet_or_username=event_ticker,
+                display_name=title,
+                total_pnl=estimated_pnl,
+                total_volume=total_activity,
+                num_trades=len(markets),
+                num_wins=0,
+                active_positions=len(markets),
+                first_seen=now,
+                last_updated=now,
+                data_source="api",
+                niches={niche: 0.8},
+                category=niche,
+            )
+        except (ValueError, TypeError, KeyError) as e:
+            logger.warning("kalshi_parse_failed", error=str(e))
+            return None
+
     def _parse_market(self, market: dict) -> TraderProfile | None:
         """Convert a Kalshi market dict into a TraderProfile.
 
         Handles missing/malformed fields gracefully.
+        Uses multiple volume fields as fallbacks.
         """
         try:
             ticker = market.get("ticker", "")
             title = market.get("title", "Unknown Market")
             event_ticker = market.get("event_ticker", "")
-            volume = float(market.get("volume", 0) or 0)
 
-            # Use volume-based heuristics for PnL estimate
-            # Kalshi doesn't expose individual trader PnL
-            estimated_pnl = volume * 0.03  # ~3% of volume as estimated edge
+            # Kalshi v2 has several volume fields — try all of them
+            volume = (
+                self._safe_float(market.get("dollar_volume"))
+                or self._safe_float(market.get("volume"))
+                or self._safe_float(market.get("volume_24h"))
+                or self._safe_float(market.get("open_interest"))
+                or self._safe_float(market.get("dollar_open_interest"))
+                or 0
+            )
+
+            # Use open interest as additional signal
+            open_interest = (
+                self._safe_float(market.get("dollar_open_interest"))
+                or self._safe_float(market.get("open_interest"))
+                or 0
+            )
+
+            # Combined activity metric (volume + open interest)
+            total_activity = max(volume, open_interest)
+
+            # Estimate PnL — more aggressive to compete with Polymarket scores
+            # Kalshi markets with high activity deserve visibility
+            estimated_pnl = total_activity * 0.05  # ~5% of activity as edge
 
             now = datetime.now(timezone.utc)
 
@@ -132,7 +200,7 @@ class KalshiAgent(BaseAgent):
                 wallet_or_username=ticker,
                 display_name=title,
                 total_pnl=estimated_pnl,
-                total_volume=volume,
+                total_volume=total_activity,
                 num_trades=0,  # Not available from market-level API
                 num_wins=0,
                 active_positions=0,
@@ -145,6 +213,16 @@ class KalshiAgent(BaseAgent):
         except (ValueError, TypeError, KeyError) as e:
             logger.warning("kalshi_parse_failed", error=str(e))
             return None
+
+    @staticmethod
+    def _safe_float(val) -> float:
+        """Convert a value to float, returning 0 for None/invalid."""
+        if val is None:
+            return 0.0
+        try:
+            return float(val)
+        except (ValueError, TypeError):
+            return 0.0
 
     async def close(self):
         """Close API connections."""

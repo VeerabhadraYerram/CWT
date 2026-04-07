@@ -94,9 +94,10 @@ class KalshiAPI:
         limit: int = 20,
         status: str = "open",
     ) -> dict:
-        """Fetch events from Kalshi's v2 API.
+        """Fetch events with nested markets from Kalshi's v2 API.
 
-        Events are higher-level groupings of related markets.
+        Events are higher-level groupings of related markets and
+        include real volume/open_interest data in their nested markets.
 
         Args:
             limit: Max events to return.
@@ -110,7 +111,11 @@ class KalshiAPI:
         try:
             resp = await self._client.get(
                 "/events",
-                params={"limit": limit, "status": status},
+                params={
+                    "limit": limit,
+                    "status": status,
+                    "with_nested_markets": "true",
+                },
             )
             resp.raise_for_status()
             return resp.json()

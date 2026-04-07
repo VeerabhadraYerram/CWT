@@ -128,7 +128,7 @@ class ApifyScraper:
         Returns:
             List of scraped content dicts.
         """
-        logger.info("apify_enrich_event", event=event_title[:60])
+        logger.info("apify_enrich_event", event_title=event_title[:60])
 
         # Step 1: Search for relevant articles
         search_results = self.search_web(

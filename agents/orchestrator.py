@@ -129,7 +129,7 @@ class Orchestrator:
             kalshi_count=len(kalshi_traders),
         )
 
-        return ranked[:limit]
+        return ranked
 
     async def close(self):
         """Clean up resources."""
