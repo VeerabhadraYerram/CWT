@@ -31,13 +31,13 @@ def print_banner():
 def print_traders_table(traders):
     """Display traders in a Rich table."""
     table = Table(
-        title="📊 Top Ranked Traders",
+        title="📊 Top Ranked Traders & Markets",
         show_header=True,
         header_style="bold magenta",
         border_style="dim",
     )
     table.add_column("#", style="dim", width=3)
-    table.add_column("Name", style="cyan", max_width=35)
+    table.add_column("Trader / Market", style="cyan", max_width=35)
     table.add_column("Platform", style="green", width=12)
     table.add_column("Score", style="bold yellow", justify="right", width=7)
     table.add_column("PnL ($)", justify="right", width=14)

@@ -64,6 +64,74 @@ def _infer_niche_from_ticker(event_ticker: str) -> str:
     return "GENERAL"
 
 
+def _ticker_to_display_name(event_ticker: str) -> str:
+    """Convert a Kalshi event ticker into a human-readable short name.
+
+    Uses known word boundaries to split ALLCAPS tickers into readable names.
+
+    Examples:
+        'KXELONMARS'         → '📈 Elon Mars Mkt'
+        'KXNEXTPOPE'         → '📈 Next Pope Mkt'
+        'KXMVESPORTS...'     → '📈 MV Esports Mkt'
+        'KXPOLITICS-...'     → '📈 Politics Mkt'
+    """
+    import re
+
+    ticker = event_ticker.strip()
+
+    # Remove the KX prefix
+    if ticker.upper().startswith("KX"):
+        ticker = ticker[2:]
+
+    # Remove anything after a dash (sub-identifiers)
+    ticker = ticker.split("-")[0]
+
+    # Known word boundaries for Kalshi tickers
+    KNOWN_WORDS = [
+        "MULTI", "GAME", "EXTENDED", "SPORTS", "ESPORTS",
+        "ELON", "MARS", "POPE", "NEXT", "TRUMP", "BIDEN",
+        "PRICE", "WEATHER", "TEMP", "SNOW", "HURRICANE",
+        "POLITICS", "ELECTION", "SENATE", "HOUSE",
+        "BTC", "ETH", "CRYPTO", "COIN",
+        "GDP", "CPI", "FED", "JOBS", "RATE", "INFL",
+        "MOVIE", "OSCAR", "AWARD", "EMMY",
+        "AI", "SPACE", "NASA", "TECH",
+        "NFL", "NBA", "MLB", "NHL", "FIFA",
+        "MV", "MVE",
+    ]
+
+    # Try to split using known words (greedy, longest first)
+    remaining = ticker.upper()
+    parts = []
+    while remaining:
+        matched = False
+        # Try longest known words first
+        for word in sorted(KNOWN_WORDS, key=len, reverse=True):
+            if remaining.startswith(word):
+                parts.append(word.title())
+                remaining = remaining[len(word):]
+                matched = True
+                break
+        if not matched:
+            # Take single character and continue
+            parts.append(remaining[0])
+            remaining = remaining[1:]
+
+    name = " ".join(parts).strip()
+
+    # Clean up single-letter fragments
+    name = re.sub(r'\b[A-Z]\b', '', name).strip()
+    name = re.sub(r'\s+', ' ', name)
+
+    if not name:
+        name = ticker.title()
+
+    if len(name) > 20:
+        name = name[:18] + ".."
+
+    return f"{name} Mkt"
+
+
 class KalshiAgent(BaseAgent):
     """Agent for fetching Kalshi market data and creating pseudo-trader profiles.
 
@@ -113,6 +181,7 @@ class KalshiAgent(BaseAgent):
         """Convert a Kalshi event (with nested markets) into a TraderProfile.
 
         Aggregates volume and open_interest across all nested markets.
+        Uses event_ticker to generate a clean short name for display.
         """
         try:
             event_ticker = event.get("event_ticker", "")
@@ -136,10 +205,14 @@ class KalshiAgent(BaseAgent):
             now = datetime.now(timezone.utc)
             niche = _infer_niche_from_ticker(event_ticker)
 
+            # Generate a short display name from the ticker
+            # e.g. "KXELONMARS" → "Elon Mars", "KXNEXTPOPE" → "Next Pope"
+            short_name = _ticker_to_display_name(event_ticker)
+
             return TraderProfile(
                 platform="kalshi",
                 wallet_or_username=event_ticker,
-                display_name=title,
+                display_name=f"📈 {short_name}",
                 total_pnl=estimated_pnl,
                 total_volume=total_activity,
                 num_trades=len(markets),

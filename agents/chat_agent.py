@@ -173,77 +173,147 @@ class ChatAgent(BaseAgent):
     def _fallback_chat(self, message: str, traders: list[TraderProfile]) -> str:
         """Generate a data-driven response when LLMs are unavailable.
 
-        Uses keyword matching and trader data to answer common questions
-        without requiring any LLM call.
+        Uses keyword matching (specific → generic priority) and trader data
+        to answer common questions without any LLM call.
         """
-        msg_lower = message.lower()
-        top = traders[:5]
+        msg = message.lower()
 
-        # Best / top / recommended
-        if any(kw in msg_lower for kw in ["best", "top", "recommend", "which", "who", "performance"]):
-            best = traders[0]
-            lines = [
-                f"📊 **Based on data analysis** (LLM currently unavailable):\n",
-                f"🏆 **{best.display_name or best.wallet_or_username}** is the top trader.\n",
-                f"  • Score: {best.composite_score:.1f}/100",
-                f"  • PnL: ${best.total_pnl:,.0f}",
-                f"  • Volume: ${best.total_volume:,.0f}",
-                f"  • Platform: {best.platform.title()}",
-            ]
-            if best.computed_win_rate > 0:
-                lines.append(f"  • Win Rate: {best.computed_win_rate:.0%}")
+        # ── 1. SPECIFIC patterns first (these contain words like "best" too) ──
+
+        # Risk / reward / safe
+        if any(kw in msg for kw in ["risk", "reward", "safe", "conservative", "stable", "ratio"]):
+            by_ratio = sorted(traders, key=lambda t: t.total_pnl / max(t.total_volume, 1), reverse=True)
+            top3 = by_ratio[:3]
+            lines = ["📊 **Risk/Reward Analysis** (data-driven fallback):\n"]
+            for i, t in enumerate(top3, 1):
+                ratio = t.total_pnl / max(t.total_volume, 1)
+                name = t.display_name or t.wallet_or_username
+                lines.append(f"  {i}. **{name}** — ratio: {ratio:.2%}, PnL: ${t.total_pnl:,.0f}")
+            lines.append(f"\n💡 Higher PnL/Volume ratio = better capital efficiency.")
             return "\n".join(lines)
 
-        # Risk / safe / conservative
-        if any(kw in msg_lower for kw in ["risk", "safe", "conservative", "stable"]):
-            # Find trader with best PnL-to-volume ratio (lower leverage = less risky)
-            by_ratio = sorted(traders, key=lambda t: t.total_pnl / max(t.total_volume, 1), reverse=True)
-            safest = by_ratio[0]
+        # Strategy / how / approach
+        if any(kw in msg for kw in ["strategy", "strateg", "approach", "how to", "method", "copy"]):
+            best = traders[0]
             return (
-                f"📊 **Risk analysis** (LLM currently unavailable):\n\n"
-                f"🛡️ **{safest.display_name or safest.wallet_or_username}** has the best "
-                f"risk/reward ratio.\n"
-                f"  • PnL/Volume ratio: {safest.total_pnl / max(safest.total_volume, 1):.2%}\n"
-                f"  • PnL: ${safest.total_pnl:,.0f}\n"
-                f"  • Platform: {safest.platform.title()}"
+                f"📊 **Trading Strategy Analysis** (data-driven fallback):\n\n"
+                f"Based on the top traders analyzed:\n"
+                f"  • **Copy top-scorers**: {best.display_name} leads with {best.composite_score:.1f}/100\n"
+                f"  • **Diversify platforms**: Mix Polymarket traders + Kalshi markets\n"
+                f"  • **Track volume**: Higher volume = more liquid, safer to follow\n"
+                f"  • **Watch win rate**: Target traders with >50% win rate\n"
+                f"  • **Size positions**: Start small, scale based on performance\n\n"
+                f"🏆 Top trader to copy: **{best.display_name}** "
+                f"(${best.total_pnl:,.0f} PnL, {best.platform.title()})"
             )
 
         # Compare / vs / difference
-        if any(kw in msg_lower for kw in ["compare", "vs", "difference", "versus"]):
+        if any(kw in msg for kw in ["compare", "vs", "versus", "difference", "between"]):
             if len(traders) >= 2:
                 t1, t2 = traders[0], traders[1]
                 return (
-                    f"📊 **Comparison** (LLM currently unavailable):\n\n"
+                    f"📊 **Head-to-Head Comparison** (data-driven fallback):\n\n"
                     f"| Metric | {t1.display_name or t1.wallet_or_username} | "
                     f"{t2.display_name or t2.wallet_or_username} |\n"
                     f"|--------|--------|--------|\n"
                     f"| Score | {t1.composite_score:.1f} | {t2.composite_score:.1f} |\n"
                     f"| PnL | ${t1.total_pnl:,.0f} | ${t2.total_pnl:,.0f} |\n"
                     f"| Volume | ${t1.total_volume:,.0f} | ${t2.total_volume:,.0f} |\n"
-                    f"| Platform | {t1.platform} | {t2.platform} |"
+                    f"| Platform | {t1.platform.title()} | {t2.platform.title()} |\n"
+                    f"| Trades | {t1.num_trades} | {t2.num_trades} |"
                 )
 
-        # Kalshi / platform
-        if any(kw in msg_lower for kw in ["kalshi", "polymarket", "platform"]):
+        # Platform-specific
+        if any(kw in msg for kw in ["kalshi", "polymarket", "platform"]):
             poly = [t for t in traders if t.platform == "polymarket"]
             kal = [t for t in traders if t.platform == "kalshi"]
+            poly_avg = sum(t.composite_score for t in poly) / max(len(poly), 1)
+            kal_avg = sum(t.composite_score for t in kal) / max(len(kal), 1)
             return (
-                f"📊 **Platform breakdown** (LLM currently unavailable):\n\n"
-                f"• Polymarket: {len(poly)} traders, "
-                f"avg score {sum(t.composite_score for t in poly) / max(len(poly), 1):.1f}\n"
-                f"• Kalshi: {len(kal)} events, "
-                f"avg score {sum(t.composite_score for t in kal) / max(len(kal), 1):.1f}\n\n"
-                f"Top Polymarket: {poly[0].display_name if poly else 'N/A'}\n"
-                f"Top Kalshi: {kal[0].display_name if kal else 'N/A'}"
+                f"📊 **Platform Breakdown** (data-driven fallback):\n\n"
+                f"**Polymarket** — {len(poly)} traders, avg score: {poly_avg:.1f}\n"
+                f"  Top: {poly[0].display_name if poly else 'N/A'} "
+                f"(${poly[0].total_pnl:,.0f} PnL)\n\n" if poly else ""
+                f"**Kalshi** — {len(kal)} markets, avg score: {kal_avg:.1f}\n"
+                f"  Top: {kal[0].display_name if kal else 'N/A'} "
+                f"(${kal[0].total_pnl:,.0f} PnL)" if kal else ""
             )
 
-        # Default: show summary
-        return (
-            f"📊 **Summary** (LLM currently unavailable — using data fallback):\n\n"
-            f"Analyzed {len(traders)} traders across Polymarket and Kalshi.\n"
-            f"Top trader: **{traders[0].display_name or traders[0].wallet_or_username}** "
-            f"(score: {traders[0].composite_score:.1f}/100, "
-            f"PnL: ${traders[0].total_pnl:,.0f})\n\n"
-            f"Try asking about: best traders, risk analysis, platform comparison, "
-            f"or specific trader names."
-        )
+        # Niche / category / sector
+        if any(kw in msg for kw in ["niche", "category", "sector", "politics", "sports", "crypto", "weather"]):
+            niche_counts: dict[str, list] = {}
+            for t in traders:
+                niche = max(t.niches, key=t.niches.get) if t.niches else "GENERAL"
+                niche_counts.setdefault(niche, []).append(t)
+            lines = ["📊 **Niche Breakdown** (data-driven fallback):\n"]
+            for niche, ts in sorted(niche_counts.items(), key=lambda x: -len(x[1])):
+                best = max(ts, key=lambda t: t.composite_score)
+                lines.append(
+                    f"  • **{niche}**: {len(ts)} entries, "
+                    f"best: {best.display_name} ({best.composite_score:.1f})"
+                )
+            return "\n".join(lines)
+
+        # Volume / liquidity / active
+        if any(kw in msg for kw in ["volume", "liquid", "active", "most traded"]):
+            by_vol = sorted(traders, key=lambda t: t.total_volume, reverse=True)[:5]
+            lines = ["📊 **Most Active by Volume** (data-driven fallback):\n"]
+            for i, t in enumerate(by_vol, 1):
+                name = t.display_name or t.wallet_or_username
+                lines.append(f"  {i}. **{name}** — ${t.total_volume:,.0f} ({t.platform.title()})")
+            return "\n".join(lines)
+
+        # PnL / profit / earnings
+        if any(kw in msg for kw in ["pnl", "profit", "earn", "money", "income"]):
+            by_pnl = sorted(traders, key=lambda t: t.total_pnl, reverse=True)[:5]
+            lines = ["📊 **Top Earners by PnL** (data-driven fallback):\n"]
+            for i, t in enumerate(by_pnl, 1):
+                name = t.display_name or t.wallet_or_username
+                lines.append(f"  {i}. **{name}** — ${t.total_pnl:,.0f} ({t.platform.title()})")
+            return "\n".join(lines)
+
+        # Score / rank / list
+        if any(kw in msg for kw in ["score", "rank", "list", "all", "show"]):
+            top5 = traders[:5]
+            lines = ["📊 **Top 5 Ranked** (data-driven fallback):\n"]
+            for i, t in enumerate(top5, 1):
+                name = t.display_name or t.wallet_or_username
+                lines.append(
+                    f"  {i}. **{name}** — Score: {t.composite_score:.1f}, "
+                    f"PnL: ${t.total_pnl:,.0f} ({t.platform.title()})"
+                )
+            return "\n".join(lines)
+
+        # ── 2. GENERIC patterns (catch-all for "best", "top", "who", etc.) ──
+
+        if any(kw in msg for kw in ["best", "top", "recommend", "who", "which", "performance"]):
+            top3 = traders[:3]
+            lines = ["📊 **Top Recommendations** (data-driven fallback):\n"]
+            for i, t in enumerate(top3, 1):
+                name = t.display_name or t.wallet_or_username
+                lines.append(
+                    f"  {i}. 🏆 **{name}** — Score: {t.composite_score:.1f}/100, "
+                    f"PnL: ${t.total_pnl:,.0f} ({t.platform.title()})"
+                )
+            lines.append(f"\n💡 Ask about: risk analysis, strategy, comparisons, "
+                        f"platforms, niches, or volume.")
+            return "\n".join(lines)
+
+        # ── 3. DEFAULT — always useful ──
+
+        top5 = traders[:5]
+        poly_count = sum(1 for t in traders if t.platform == "polymarket")
+        kal_count = sum(1 for t in traders if t.platform == "kalshi")
+        lines = [
+            f"📊 **Data Summary** (LLM unavailable — {len(traders)} entries analyzed):\n",
+            f"  Platforms: {poly_count} Polymarket traders, {kal_count} Kalshi markets\n",
+        ]
+        for i, t in enumerate(top5, 1):
+            name = t.display_name or t.wallet_or_username
+            lines.append(
+                f"  {i}. **{name}** — {t.composite_score:.1f}/100, "
+                f"${t.total_pnl:,.0f} PnL ({t.platform.title()})"
+            )
+        lines.append(f"\n💡 Try asking about: risk/reward, strategy, compare traders, "
+                    f"platforms, niches, volume, profits, or rankings.")
+        return "\n".join(lines)

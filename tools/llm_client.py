@@ -22,10 +22,10 @@ class LLMClient:
 
     FALLBACK_MODELS = [
         "google/gemma-3-4b-it:free",
-        "meta-llama/llama-3.3-70b-instruct:free",
-        "mistralai/mistral-7b-instruct:free",
-        "qwen/qwen3-4b:free",
-        "google/gemma-3-1b-it:free",
+        "meta-llama/llama-3.2-3b-instruct:free",
+        "google/gemma-3-27b-it:free",
+        "qwen/qwen3.6-plus:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
     ]
 
     MAX_RETRIES = 3
