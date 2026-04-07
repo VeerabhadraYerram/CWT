@@ -238,6 +238,13 @@ python -m pytest tests/test_scoring.py -v
 | Memory & Skills | 8 tests | ✅ All pass |
 | **Total** | **36 tests** | **✅ All pass** |
 
+## Scalability & Reliability
+
+- Modular multi-agent architecture allows easy extension to additional data sources
+- Async API clients enable concurrent data fetching
+- Structured logging (structlog) provides observability across the pipeline
+- Robust error handling with retries and fallbacks ensures system reliability under real-world constraints
+
 ## Built With
 
 This project was developed using **Antigravity** (Google DeepMind's agentic AI coding assistant) for pair programming and code generation.
