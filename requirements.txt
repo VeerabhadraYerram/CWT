@@ -1,0 +1,15 @@
+# Core dependencies
+openai>=1.30.0           # OpenRouter-compatible SDK (chat completions + tool calling)
+httpx>=0.27.0            # Async HTTP client for Polymarket / Kalshi APIs
+apify-client>=1.7.0      # Apify web scraping SDK
+python-dotenv>=1.0.0     # .env file loader
+pydantic>=2.0            # Data validation & models
+pydantic-settings>=2.0   # BaseSettings for env var loading
+tenacity>=8.2.0          # Retry with backoff
+structlog>=24.0.0        # Structured logging
+rich>=13.7.0             # Beautiful CLI output
+aiosqlite>=0.20.0        # Async SQLite for data persistence
+
+# Optional — only needed for RAG_MODE="advanced"
+# chromadb>=0.5.0
+# sentence-transformers
