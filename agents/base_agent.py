@@ -11,6 +11,11 @@ from memory.skills_manager import SkillsManager
 logger = structlog.get_logger(__name__)
 
 
+class LLMUnavailableError(Exception):
+    """Raised when all LLM models are rate-limited or unavailable."""
+    pass
+
+
 class BaseAgent:
     """Hermes-inspired agent with conversation history, memory, and skills.
 
@@ -48,6 +53,9 @@ class BaseAgent:
             4. Call LLM
             5. Append user + assistant messages to history
             6. Return reply text
+
+        Raises:
+            LLMUnavailableError: If all LLM models are unavailable/rate-limited.
         """
         self.logger.info("agent_run", input=user_message[:100])
 
@@ -56,6 +64,13 @@ class BaseAgent:
 
         # Call LLM
         reply = self.client.chat(messages)
+
+        if reply is None:
+            raise LLMUnavailableError(
+                "All LLM models are currently rate-limited. "
+                "The system will use data-driven fallback responses."
+            )
+
         reply = reply.strip()
 
         # Update conversation history ONLY if success

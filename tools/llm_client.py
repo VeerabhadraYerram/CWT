@@ -23,10 +23,13 @@ class LLMClient:
     FALLBACK_MODELS = [
         "google/gemma-3-4b-it:free",
         "meta-llama/llama-3.3-70b-instruct:free",
+        "mistralai/mistral-7b-instruct:free",
+        "qwen/qwen3-4b:free",
+        "google/gemma-3-1b-it:free",
     ]
 
-    MAX_RETRIES = 2
-    RETRY_DELAY = 3  # seconds between retries on 429
+    MAX_RETRIES = 3
+    RETRY_DELAY = 2  # seconds between retries on 429 (exponential: 2, 4, 6)
 
     def __init__(self, model: str | None = None):
         if not settings.OPENROUTER_API_KEY:
@@ -38,15 +41,14 @@ class LLMClient:
         )
 
     def _call(self, messages, temperature):
-        """Call LLM with retry on 429 and model fallback chain."""
+        """Call LLM with retry on 429 and model fallback chain.
 
-        # Use ONLY these models in order
-        models = [
-            "google/gemma-3-4b-it:free",
-            "meta-llama/llama-3.3-70b-instruct:free"
-        ]
+        Tries each model in FALLBACK_MODELS with exponential backoff.
+        Returns None (never raises) if all models fail.
+        """
+        last_error = None
 
-        for model in models:
+        for model in self.FALLBACK_MODELS:
             for attempt in range(1, self.MAX_RETRIES + 1):
                 try:
                     return self._client.chat.completions.create(
@@ -56,12 +58,14 @@ class LLMClient:
                         max_tokens=500,
                     )
                 except Exception as e:
+                    last_error = e
                     error_str = str(e)
                     is_rate_limit = "429" in error_str
                     is_not_found = "404" in error_str
+                    is_bad_request = "400" in error_str
 
-                    if is_not_found:
-                        logger.warning("model_not_found", model=model)
+                    if is_not_found or is_bad_request:
+                        logger.warning("model_unavailable", model=model, reason=error_str[:80])
                         break  # skip to next model
 
                     if is_rate_limit and attempt < self.MAX_RETRIES:
@@ -73,9 +77,10 @@ class LLMClient:
                     logger.warning("llm_call_failed", model=model, attempt=attempt, error=error_str[:100])
                     break  # skip to next model
 
-        raise Exception("All LLM models failed.")
+        logger.error("all_llm_models_failed", last_error=str(last_error)[:100] if last_error else "unknown")
+        return None
 
-    def chat(self, messages: list[dict], temperature: float = 0.7) -> str:
+    def chat(self, messages: list[dict], temperature: float = 0.7) -> str | None:
         """Send messages and return the assistant's text response.
 
         Args:
@@ -83,11 +88,14 @@ class LLMClient:
             temperature: Sampling temperature (0.0 = deterministic).
 
         Returns:
-            The assistant reply as a plain string.
+            The assistant reply as a plain string, or None if all models failed.
         """
         logger.debug("llm_request", model=self.model, msg_count=len(messages))
 
         response = self._call(messages, temperature)
+
+        if response is None:
+            return None
 
         reply = response.choices[0].message.content or ""
         logger.debug("llm_response", chars=len(reply))

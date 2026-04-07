@@ -117,17 +117,28 @@ class ChatAgent(BaseAgent):
             traders: Optional trader data for context.
 
         Returns:
-            Agent's response.
+            Agent's response (LLM-generated or data-driven fallback).
         """
-        if traders:
-            context = self._build_context(traders[:3])
-            augmented = (
-                f"Current trader data for reference:\n{context}\n\n"
-                f"User says: {message}"
-            )
-            return self.run(augmented)
+        try:
+            if traders:
+                context = self._build_context(traders[:3])
+                augmented = (
+                    f"Current trader data for reference:\n{context}\n\n"
+                    f"User says: {message}"
+                )
+                return self.run(augmented)
 
-        return self.run(message)
+            return self.run(message)
+
+        except Exception:
+            # Data-driven fallback — always available, never crashes
+            if not traders:
+                return (
+                    "⚠️ LLM models are currently rate-limited and no trader data is loaded.\n"
+                    "Please try again in a few minutes, or re-run the pipeline."
+                )
+
+            return self._fallback_chat(message, traders)
 
     def _build_context(self, traders: list[TraderProfile]) -> str:
         """Format trader data into a readable text block for the LLM."""
@@ -158,3 +169,81 @@ class ChatAgent(BaseAgent):
             )
 
         return "\n".join(lines)
+
+    def _fallback_chat(self, message: str, traders: list[TraderProfile]) -> str:
+        """Generate a data-driven response when LLMs are unavailable.
+
+        Uses keyword matching and trader data to answer common questions
+        without requiring any LLM call.
+        """
+        msg_lower = message.lower()
+        top = traders[:5]
+
+        # Best / top / recommended
+        if any(kw in msg_lower for kw in ["best", "top", "recommend", "which", "who", "performance"]):
+            best = traders[0]
+            lines = [
+                f"📊 **Based on data analysis** (LLM currently unavailable):\n",
+                f"🏆 **{best.display_name or best.wallet_or_username}** is the top trader.\n",
+                f"  • Score: {best.composite_score:.1f}/100",
+                f"  • PnL: ${best.total_pnl:,.0f}",
+                f"  • Volume: ${best.total_volume:,.0f}",
+                f"  • Platform: {best.platform.title()}",
+            ]
+            if best.computed_win_rate > 0:
+                lines.append(f"  • Win Rate: {best.computed_win_rate:.0%}")
+            return "\n".join(lines)
+
+        # Risk / safe / conservative
+        if any(kw in msg_lower for kw in ["risk", "safe", "conservative", "stable"]):
+            # Find trader with best PnL-to-volume ratio (lower leverage = less risky)
+            by_ratio = sorted(traders, key=lambda t: t.total_pnl / max(t.total_volume, 1), reverse=True)
+            safest = by_ratio[0]
+            return (
+                f"📊 **Risk analysis** (LLM currently unavailable):\n\n"
+                f"🛡️ **{safest.display_name or safest.wallet_or_username}** has the best "
+                f"risk/reward ratio.\n"
+                f"  • PnL/Volume ratio: {safest.total_pnl / max(safest.total_volume, 1):.2%}\n"
+                f"  • PnL: ${safest.total_pnl:,.0f}\n"
+                f"  • Platform: {safest.platform.title()}"
+            )
+
+        # Compare / vs / difference
+        if any(kw in msg_lower for kw in ["compare", "vs", "difference", "versus"]):
+            if len(traders) >= 2:
+                t1, t2 = traders[0], traders[1]
+                return (
+                    f"📊 **Comparison** (LLM currently unavailable):\n\n"
+                    f"| Metric | {t1.display_name or t1.wallet_or_username} | "
+                    f"{t2.display_name or t2.wallet_or_username} |\n"
+                    f"|--------|--------|--------|\n"
+                    f"| Score | {t1.composite_score:.1f} | {t2.composite_score:.1f} |\n"
+                    f"| PnL | ${t1.total_pnl:,.0f} | ${t2.total_pnl:,.0f} |\n"
+                    f"| Volume | ${t1.total_volume:,.0f} | ${t2.total_volume:,.0f} |\n"
+                    f"| Platform | {t1.platform} | {t2.platform} |"
+                )
+
+        # Kalshi / platform
+        if any(kw in msg_lower for kw in ["kalshi", "polymarket", "platform"]):
+            poly = [t for t in traders if t.platform == "polymarket"]
+            kal = [t for t in traders if t.platform == "kalshi"]
+            return (
+                f"📊 **Platform breakdown** (LLM currently unavailable):\n\n"
+                f"• Polymarket: {len(poly)} traders, "
+                f"avg score {sum(t.composite_score for t in poly) / max(len(poly), 1):.1f}\n"
+                f"• Kalshi: {len(kal)} events, "
+                f"avg score {sum(t.composite_score for t in kal) / max(len(kal), 1):.1f}\n\n"
+                f"Top Polymarket: {poly[0].display_name if poly else 'N/A'}\n"
+                f"Top Kalshi: {kal[0].display_name if kal else 'N/A'}"
+            )
+
+        # Default: show summary
+        return (
+            f"📊 **Summary** (LLM currently unavailable — using data fallback):\n\n"
+            f"Analyzed {len(traders)} traders across Polymarket and Kalshi.\n"
+            f"Top trader: **{traders[0].display_name or traders[0].wallet_or_username}** "
+            f"(score: {traders[0].composite_score:.1f}/100, "
+            f"PnL: ${traders[0].total_pnl:,.0f})\n\n"
+            f"Try asking about: best traders, risk analysis, platform comparison, "
+            f"or specific trader names."
+        )
