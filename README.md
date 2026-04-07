@@ -69,13 +69,16 @@ Uses Apify to scrape web content for top events, stored in a JSON context store 
 Multi-factor scoring formula (0-100):
 - Win Rate (30%) · ROI (25%) · Recency (20%) · Trade Frequency (15%) · Volatility Penalty (10%)
 
+### Intelligent Chat Fallback
+When LLM models are rate-limited, the system falls back to a **data-driven response engine** that handles 10+ query types (strategy, risk/reward, comparisons, platform breakdowns, niche analysis, etc.) — the system never crashes.
+
 ## Quick Start
 
 ### 1. Clone & Install
 
 ```bash
-git clone <this-repo>
-cd CWT_Predictions_Market_Internship_Task
+git clone https://github.com/VeerabhadraYerram/CWT.git
+cd CWT
 
 python -m venv .venv
 source .venv/bin/activate
@@ -87,8 +90,8 @@ pip install -r requirements.txt
 ```bash
 cp .env.example .env
 # Edit .env and add your API keys:
-#   OPENROUTER_API_KEY=your_key  (required)
-#   APIFY_API_TOKEN=your_token   (optional, for RAG)
+#   OPENROUTER_API_KEY=your_key  (required — get at https://openrouter.ai/keys)
+#   APIFY_API_TOKEN=your_token   (required for RAG — get at https://console.apify.com/account/integrations)
 ```
 
 ### 3. Run
@@ -104,6 +107,35 @@ python main.py --limit 20 --category POLITICS
 python main.py --chat
 ```
 
+## Apify Integration
+
+This project uses **Apify** for web scraping and RAG enrichment. The following Apify actors are used:
+
+| Actor | Purpose |
+|-------|---------|
+| `apify/google-search-scraper` | Search Google for market-related articles |
+| `apify/web-scraper` | Scrape content from discovered URLs |
+
+**Apify Token**: Required for RAG enrichment. Set `APIFY_API_TOKEN` in your `.env` file.
+Get your free token at: https://console.apify.com/account/integrations
+
+The Apify free tier provides sufficient API credits for testing and development.
+
+## LLM Models Used
+
+The system uses OpenRouter's free tier with a 5-model fallback chain:
+
+| Priority | Model | Purpose |
+|----------|-------|---------|
+| 1 | `google/gemma-3-4b-it:free` | Primary (fast, reliable) |
+| 2 | `meta-llama/llama-3.2-3b-instruct:free` | Fast fallback |
+| 3 | `google/gemma-3-27b-it:free` | High-quality fallback |
+| 4 | `qwen/qwen3.6-plus:free` | Additional fallback |
+| 5 | `nvidia/nemotron-3-super-120b-a12b:free` | Last resort |
+
+Each model is retried 3 times with exponential backoff before moving to the next.
+If all models are exhausted, the system provides **data-driven fallback responses** (never crashes).
+
 ## Project Structure
 
 ```
@@ -118,9 +150,9 @@ python main.py --chat
 │   ├── niche_agent.py            # LLM + keyword niche classifier
 │   ├── rag_enrichment_agent.py   # Apify RAG enrichment
 │   ├── learning_loop_agent.py    # Closed learning loop
-│   └── chat_agent.py             # Recommendation generator
+│   └── chat_agent.py             # Recommendation + chat interface
 ├── tools/
-│   ├── llm_client.py             # OpenRouter SDK wrapper
+│   ├── llm_client.py             # OpenRouter SDK wrapper (5-model fallback)
 │   ├── polymarket_api.py         # Polymarket CLOB API client
 │   ├── kalshi_api.py             # Kalshi Trade API v2 client
 │   ├── apify_scraper.py          # Apify web scraper
@@ -167,16 +199,18 @@ This approach gives us the benefits of Hermes' architecture while maintaining fu
 
 ### Kalshi "Pseudo-Traders"
 
-Kalshi does not expose a public trader leaderboard. We model high-volume markets as pseudo-traders, where each market's trading volume serves as a proxy for trader activity. The event ticker prefix (e.g., `KXMLB` → Sports/MLB) enables automatic niche classification.
+Kalshi does not expose a public trader leaderboard. We model high-volume markets as pseudo-traders, where each market's trading volume serves as a proxy for trader activity. The event ticker prefix (e.g., `KXMLB` → Sports/MLB) enables automatic niche classification. These are displayed with a 📈 prefix and labeled as "Markets" in the UI.
 
 ### Free-Tier LLM Strategy
 
-Uses OpenRouter with three free models in a fallback chain:
-1. `mistralai/mistral-7b-instruct:free`
-2. `google/gemma-3-4b-it:free`
-3. `meta-llama/llama-3.3-70b-instruct:free`
+Uses OpenRouter with five free models in a fallback chain (see [LLM Models Used](#llm-models-used)). The niche classifier intelligently avoids LLM calls for opaque usernames (like "theo4") that provide no classifiable signal, reserving API calls for descriptive Kalshi market titles.
 
-The niche classifier intelligently avoids LLM calls for opaque usernames (like "theo4") that provide no classifiable signal, reserving API calls for descriptive Kalshi market titles.
+### Error Handling & Resilience
+
+- **LLM failures**: 5-model fallback + data-driven chat responses when all models fail
+- **API failures**: `tenacity` retry with exponential backoff on all HTTP calls
+- **Scraping failures**: Graceful degradation — pipeline continues without RAG data
+- **Structured logging**: `structlog` with JSON output for full observability
 
 ## Testing
 
@@ -184,12 +218,26 @@ The niche classifier intelligently avoids LLM calls for opaque usernames (like "
 # Install test dependencies
 pip install pytest pytest-asyncio
 
-# Run all tests
+# Run all tests (36 tests)
 python -m pytest tests/ -v
 
 # Run specific test file
 python -m pytest tests/test_scoring.py -v
 ```
+
+### Test Coverage
+
+| Module | Tests | Status |
+|--------|-------|--------|
+| Scoring Engine | 9 tests | ✅ All pass |
+| Polymarket API | 3 tests | ✅ All pass |
+| Kalshi API | 16 tests | ✅ All pass |
+| Memory & Skills | 8 tests | ✅ All pass |
+| **Total** | **36 tests** | **✅ All pass** |
+
+## Built With
+
+This project was developed using **Antigravity** (Google DeepMind's agentic AI coding assistant) for pair programming and code generation.
 
 ## License
 
