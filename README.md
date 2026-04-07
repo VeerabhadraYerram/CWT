@@ -74,6 +74,9 @@ When LLM models are rate-limited, the system falls back to a **data-driven respo
 
 ## Quick Start
 
+### ⚠️ Prerequisites & VPN Note
+**Important:** The Kalshi and Polymarket APIs are **geo-blocked** in certain regions. If you encounter errors fetching data, you **must use a US-based VPN** (e.g., Cloudflare WARP) to run this pipeline successfully.
+
 ### 1. Clone & Install
 
 ```bash
