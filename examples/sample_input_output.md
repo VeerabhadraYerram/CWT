@@ -1,140 +1,142 @@
-# Sample Input / Output
+# Sample Input & Output
 
-Real output from a production run of the CrowdWisdomTrading agent system.
-
----
-
-## Run: Default Discovery (`python main.py --limit 8`)
+## Running the Pipeline
 
 ### Command
-
 ```bash
-python main.py --limit 8
+python main.py --limit 5
 ```
 
-### Pipeline Execution Log
+### Output
 
 ```
-╭──────────────────────────╮
-│ 🎯 CrowdWisdomTrading —  │
-│ Prediction Market AI     │
-│ Agent System             │
-│    Hermes-inspired       │
-│ multi-agent framework    │
-│ with closed learning     │
-│ loop                     │
-╰──────────────────────────╯
+╭───────────────────────────────────────────────────────────────────╮
+│ 🎯 CrowdWisdomTrading — Prediction Market AI Agent System        │
+│    Hermes-inspired multi-agent framework with closed learning loop│
+╰───────────────────────────────────────────────────────────────────╯
 
 🔍 Fetching and scoring traders...
    Polymarket (real leaderboard) + Kalshi (live markets)
 
-[info] pipeline_start          category=OVERALL
-[info] fetch_traders           agent=polymarket_agent limit=8
-[info] polymarket_leaderboard  category=OVERALL limit=8
-[info] traders_fetched         agent=polymarket_agent count=8
-[info] step_done               step=polymarket_fetch count=8
+[info] pipeline_start         category=OVERALL pipeline=discover_traders
+[info] traders_fetched        agent=polymarket_agent count=5
+[info] kalshi_traders_created agent=kalshi_agent count=5
+[info] step_done              count=10 step=niche_mapping
+[info] apify_search           query='📈 Elon Mars Mkt prediction market analysis'
+[info] apify_search_done      results=3
+[info] pipeline_done          kalshi_count=5 polymarket_count=5 top_score=89.48
 
-[info] kalshi_fetch_traders    agent=kalshi_agent limit=8
-[info] kalshi_get_markets      limit=8 status=open
-[info] kalshi_markets_fetched  count=8
-[info] step_done               step=kalshi_fetch count=8
-
-[info] step_done               step=niche_mapping count=16
-[info] step_done               step=rag_enrichment events=3
-[info] step_done               step=scoring total=16
-
-[info] traders_saved           count=16
-[info] step_done               step=persistence
-
-[info] learning_loop_start     trader_count=16
-[info] memory_saved            category=run_outcome id=mem_0004
-[info] skill_saved             name=insight_20260407_1448
-[info] memory_saved            category=self_assessment id=mem_0005
-[info] learning_loop_done      memories=2 skills=1
-[info] step_done               step=learning_loop
-
-[info] pipeline_done           total=16 top_score=89.48
-```
-
-### Trader Rankings Table
-
-```
-     📊 Top Ranked Traders
-┏━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━┓
-┃# ┃ Name          ┃ Platform  ┃ Score ┃      PnL ($) ┃  Volume ($)  ┃ Niche      ┃Trust ┃
-┡━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━┩
-│1 │ kch123        │ Polymarket│  89.5 │  11,456,526  │ 276,451,914  │ GENERAL    │  50  │
-│2 │ theo4         │ Polymarket│  84.2 │  22,841,128  │ 437,982,665  │ GENERAL    │  50  │
-│3 │ fredi9999     │ Polymarket│  78.9 │  16,332,941  │ 763,234,812  │ GENERAL    │  50  │
-│4 │ zxgngl        │ Polymarket│  72.1 │   6,128,556  │ 374,821,944  │ GENERAL    │  50  │
-│5 │ princesscaro  │ Polymarket│  68.8 │   7,229,114  │ 403,612,221  │ GENERAL    │  50  │
-│6 │ len9311238    │ Polymarket│  65.2 │   8,445,773  │ 162,554,382  │ GENERAL    │  50  │
-│7 │ rn1           │ Polymarket│  61.0 │   6,118,224  │ 233,441,891  │ GENERAL    │  50  │
-│8 │ Michiel99     │ Polymarket│  58.4 │   7,882,312  │ 138,228,447  │ POLITICS   │  50  │
-└──┴───────────────┴───────────┴───────┴──────────────┴──────────────┴────────────┴──────┘
+                 📊 Top Ranked Traders & Markets
+┏━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━┓
+┃ #  ┃ Trader / Market   ┃ Platform   ┃ Score ┃       PnL ($) ┃   Volume ($)  ┃ Niche         ┃ Trust┃
+┡━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━┩
+│ 1  │ kch123            │ Polymarket │  89.5 │    11,456,526 │  276,451,914  │ GENERAL       │   50 │
+│ 2  │ Theo4             │ Polymarket │  88.6 │    22,053,934 │   43,013,259  │ GENERAL       │   50 │
+│ 3  │ Fredi9999         │ Polymarket │  88.4 │    16,619,507 │   76,611,317  │ GENERAL       │   50 │
+│ 4  │ swisstony         │ Polymarket │  87.4 │     5,730,170 │  631,274,627  │ GENERAL       │   50 │
+│ 5  │ RN1               │ Polymarket │  87.2 │     6,973,362 │  373,554,064  │ GENERAL       │   50 │
+│ 6  │ 📈 Elon Mars Mkt  │ Kalshi     │  32.1 │         3,498 │       69,965  │ SCIENCE/TECH  │   50 │
+│ 7  │ 📈 Next Pope Mkt  │ Kalshi     │  28.5 │           646 │       12,926  │ GENERAL       │   50 │
+│ 8  │ 📈 Btc Price Mkt  │ Kalshi     │  26.8 │           582 │       11,635  │ CRYPTO        │   50 │
+│ 9  │ 📈 Nfl Mkt        │ Kalshi     │  24.3 │           446 │        8,923  │ SPORTS        │   50 │
+│ 10 │ 📈 Weather Mkt    │ Kalshi     │  22.1 │         1,299 │       25,988  │ WEATHER       │   50 │
+└────┴───────────────────┴────────────┴───────┴───────────────┴───────────────┴───────────────┴──────┘
 ```
 
 ### AI Recommendation
 
 ```
-╭── 💡 AI Recommendation ──╮
-│                           │
-│  🏆 **kch123** is the     │
-│  top-ranked trader to     │
-│  copy.                    │
-│                           │
-│  📊 Score: 89.48/100      │
-│  💰 PnL: $11,456,526.22   │
-│  📈 Volume:               │
-│  $276,451,914.46          │
-│  🏷️ Platform: Polymarket  │
-│                           │
-│  They stand out due to    │
-│  strong profitability     │
-│  and high trading         │
-│  activity compared to 8   │
-│  other traders analyzed.  │
-│                           │
-╰───────────────────────────╯
-```
-
-### Session Summary
-
-```
-─── Session Complete ───
-  Traders analyzed: 8
-  Data persisted to: data/predictions.db
-  Skills stored in: memory/store/skills
+╭────────────────────── 💡 AI Recommendation ──────────────────────╮
+│                                                                   │
+│  🏆 **kch123** is the top-ranked trader to copy.                  │
+│                                                                   │
+│  📊 Score: 89.48/100                                              │
+│  💰 PnL: $11,456,526.22                                           │
+│  📈 Volume: $276,451,914.46                                       │
+│  🏷️ Platform: Polymarket                                          │
+│                                                                   │
+│  They stand out due to strong profitability and high trading      │
+│  activity compared to 10 other traders analyzed.                  │
+│                                                                   │
+╰───────────────────────────────────────────────────────────────────╯
 ```
 
 ---
 
-## Run: Interactive Chat (`python main.py --chat`)
+## Interactive Chat Mode
 
+### Command
 ```bash
-python main.py --limit 5 --chat
+python main.py --chat --limit 5
 ```
 
-After the discovery pipeline runs, the interactive chat mode begins:
+### Chat Session Examples
+
+The chat system uses LLM when available, with intelligent data-driven fallbacks when rate-limited:
 
 ```
-╭── 💬 Interactive Chat ──╮
-│ Ask follow-up questions  │
-│ about traders, markets,  │
-│ or copy-trading strategy │
-│ Type quit or exit to     │
-│ stop.                    │
-╰──────────────────────────╯
+╭───────────────── 💬 Interactive Chat ─────────────────╮
+│ Ask follow-up questions about traders, markets, or    │
+│ copy-trading strategy.                                │
+│ Type quit or exit to stop.                            │
+╰───────────────────────────────────────────────────────╯
+
+You: What is the best trading strategy?
+╭────────────── 🤖 Agent ──────────────╮
+│ 📊 **Trading Strategy Analysis**:    │
+│                                      │
+│ Based on the top traders analyzed:   │
+│   • Copy top-scorers: kch123 leads   │
+│     with 89.5/100                    │
+│   • Diversify platforms: Mix         │
+│     Polymarket + Kalshi              │
+│   • Track volume: Higher volume =    │
+│     more liquid, safer to follow     │
+│   • Watch win rate: Target >50%      │
+│   • Size positions: Start small      │
+│                                      │
+│ 🏆 Top trader: kch123               │
+│    ($11,456,526 PnL, Polymarket)     │
+╰──────────────────────────────────────╯
 
 You: Which trader has the best risk/reward ratio?
+╭────────────── 🤖 Agent ──────────────╮
+│ 📊 **Risk/Reward Analysis**:         │
+│                                      │
+│   1. Theo4 — ratio: 51.27%,         │
+│      PnL: $22,053,934                │
+│   2. Fredi9999 — ratio: 21.69%,     │
+│      PnL: $16,619,507                │
+│   3. kch123 — ratio: 4.14%,         │
+│      PnL: $11,456,526                │
+│                                      │
+│ 💡 Higher PnL/Volume ratio =         │
+│    better capital efficiency.         │
+╰──────────────────────────────────────╯
 
-╭── 🤖 Agent ──────────────╮
-│ Based on the data,        │
-│ kch123 offers the best    │
-│ risk/reward ratio with    │
-│ PnL of $11.5M on $276M   │
-│ volume (4.1% return).     │
-╰───────────────────────────╯
+You: Compare the top two traders
+╭────────────── 🤖 Agent ──────────────╮
+│ 📊 **Head-to-Head Comparison**:      │
+│                                      │
+│ | Metric   | kch123      | Theo4    |│
+│ |----------|-------------|----------|│
+│ | Score    | 89.5        | 88.6     |│
+│ | PnL      | $11,456,526 | $22M    |│
+│ | Volume   | $276M       | $43M    |│
+│ | Platform | Polymarket  | Polym.  |│
+│ | Trades   | 500         | 350     |│
+╰──────────────────────────────────────╯
+
+You: Tell me about Kalshi markets
+╭────────────── 🤖 Agent ──────────────╮
+│ 📊 **Platform Breakdown**:           │
+│                                      │
+│ Polymarket — 5 traders, avg: 86.2    │
+│   Top: kch123 ($11,456,526 PnL)     │
+│                                      │
+│ Kalshi — 5 markets, avg: 26.8        │
+│   Top: 📈 Elon Mars Mkt ($3,498)    │
+╰──────────────────────────────────────╯
 
 You: quit
 Chat ended. Goodbye!
@@ -142,73 +144,10 @@ Chat ended. Goodbye!
 
 ---
 
-## Generated Artifacts
+## Notes
 
-After a run, the following files are created in `data/` and `memory/store/`:
-
-### Skill File: `memory/store/skills/insight_20260407_1448.md`
-
-```markdown
----
-name: insight_20260407_1448
-description: Auto-extracted from pipeline run analyzing 16 traders
-tags: [auto-extracted, polymarket, general]
-created: 2026-04-07T14:48:58.000000+00:00
----
-
-When analyzing polymarket traders, prioritize those with
-PnL > $11,456,526 and volume > $276,451,914.
-These high-value traders tend to score well (score: 89.48/100).
-```
-
-### Memory: `memory/store/memory.json` (excerpt)
-
-```json
-[
-  {
-    "id": "mem_0004",
-    "content": "Pipeline run at 2026-04-07T14:48:58...\nTotal traders analyzed: 16\nTop 5 traders:\n  - kch123 (polymarket) | Score: 89.48 | PnL: $11,456,526",
-    "category": "run_outcome",
-    "tags": ["pipeline", "traders", "recommendation"]
-  }
-]
-```
-
----
-
-## Test Results
-
-```bash
-$ python -m pytest tests/ -v
-
-tests/test_scoring.py::TestTraderScorer::test_score_with_trade_data PASSED
-tests/test_scoring.py::TestTraderScorer::test_score_without_trade_data PASSED
-tests/test_scoring.py::TestTraderScorer::test_score_clamping PASSED
-tests/test_scoring.py::TestTraderScorer::test_score_zero_everything PASSED
-tests/test_scoring.py::TestTraderScorer::test_rank_ordering PASSED
-tests/test_scoring.py::TestTraderScorer::test_rank_scores_set PASSED
-tests/test_scoring.py::TestTraderScorer::test_breakdown_with_trades PASSED
-tests/test_scoring.py::TestTraderScorer::test_breakdown_without_trades PASSED
-tests/test_scoring.py::TestTraderScorer::test_recency_decay PASSED
-tests/test_scoring.py::TestTraderScorer::test_higher_winrate_scores_better PASSED
-tests/test_agents.py::TestTraderProfile::test_create_minimal PASSED
-tests/test_agents.py::TestTraderProfile::test_score_clamping PASSED
-tests/test_agents.py::TestTraderProfile::test_computed_win_rate PASSED
-tests/test_agents.py::TestTraderProfile::test_computed_win_rate_zero_trades PASSED
-tests/test_agents.py::TestTraderProfile::test_to_summary_dict PASSED
-tests/test_agents.py::TestNicheAgent::test_politics_keyword PASSED
-tests/test_agents.py::TestNicheAgent::test_sports_keyword PASSED
-tests/test_agents.py::TestNicheAgent::test_weather_keyword PASSED
-tests/test_agents.py::TestNicheAgent::test_general_fallback PASSED
-tests/test_agents.py::TestNicheAgent::test_preserves_existing_niches PASSED
-tests/test_agents.py::TestMemoryManager::test_save_and_search PASSED
-tests/test_agents.py::TestMemoryManager::test_get_recent PASSED
-tests/test_agents.py::TestMemoryManager::test_count PASSED
-tests/test_agents.py::TestMemoryManager::test_clear PASSED
-tests/test_agents.py::TestSkillsManager::test_save_and_load PASSED
-tests/test_agents.py::TestSkillsManager::test_list_skills PASSED
-tests/test_agents.py::TestSkillsManager::test_find_relevant PASSED
-tests/test_agents.py::TestSkillsManager::test_delete_skill PASSED
-
-======================== 28 passed in 0.37s =========================
-```
+- **Kalshi entries** are labeled with 📈 and display as market names (e.g., "📈 Elon Mars Mkt") because Kalshi doesn't expose individual trader data — each entry represents collective market activity.
+- **Polymarket entries** are real trader usernames from the public leaderboard.
+- The chat fallback system handles **10+ types of questions** without LLM: strategy, risk/reward, comparisons, platforms, niches, volume, PnL, rankings, and general summaries.
+- When LLM models are available, responses are richer and more conversational.
+- **VPN**: Kalshi API may require a US-based VPN (Cloudflare WARP works). Polymarket, OpenRouter, and Apify work globally.
